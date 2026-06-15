@@ -34,6 +34,26 @@ resource "aws_s3_bucket_website_configuration" "frontend_web" {
   }
 }
 
+resource "aws_s3_bucket_policy" "allow_public_access" {
+  bucket = aws_s3_bucket.frontend.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "PublicReadGetObject"
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = "s3:GetObject"
+        Resource  = "${aws_s3_bucket.frontend.arn}/*"
+      }
+    ]
+  })
+  
+  # Ensure public access block is updated before setting the policy
+  depends_on = [aws_s3_bucket_public_access_block.frontend_block]
+}
+
+
 # AWS App Runner for Backend API hosting
 resource "aws_iam_role" "apprunner_build_role" {
   name = "spendsense-apprunner-build-role"
