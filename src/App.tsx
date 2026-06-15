@@ -137,40 +137,98 @@ export default function App() {
 
   const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
-    const files = Array.from(e.target.files).map(f => ({
-      name: f.name,
-      size: `${Math.round(f.size / 1024)} KB`
-    }));
-    setUploadedFiles(prev => [...prev, ...files]);
+    const fileList = Array.from(e.target.files);
+    
+    fileList.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64String = event.target?.result as string;
+        setUploadedFiles(prev => [...prev, {
+          name: file.name,
+          size: `${Math.round(file.size / 1024)} KB`,
+          base64: base64String,
+          mimeType: file.type
+        }]);
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
-  const handleAnalyzeUploads = () => {
+  const handleAnalyzeUploads = async () => {
     setIsAnalyzing(true);
-    setTimeout(() => {
-      // Hardcoded simulation results matching standard layout goals
-      setAnalysisResult({
-        accounts: [
-          { name: 'HDFC Bank (Account 1)', type: 'Primary Savings', startDate: '2026-01-01', endDate: '2026-06-20' },
-          { name: 'GPay App Logs', type: 'UPI Account', startDate: '2026-05-01', endDate: '2026-05-28' },
-          { name: 'ICICI Bank (Account 2)', type: 'Credit Card', startDate: '2026-03-01', endDate: '2026-05-28' }
-        ],
-        gapWarnings: [
-          { accountName: 'HDFC Bank (Account 1)', message: 'Notice: The statement ends on June 20, 2026. Last 10 days of June are missing.', severity: 'medium' },
-          { accountName: 'GPay App Logs', message: 'Alert: Gap detected in statements. GPay UPI logs are missing the last 3 days of May.', severity: 'high' }
-        ]
+    try {
+      const res = await fetch('/api/analyze-uploads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: uploadedFiles })
       });
+      const result = await res.json();
+      if (result.success && result.data) {
+        setAnalysisResult(result.data);
+        setActiveStep('analysis');
+      } else {
+        alert(result.error || 'Failed to analyze uploads');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error analyzing uploads');
+    } finally {
       setIsAnalyzing(false);
-      setActiveStep('analysis');
-    }, 1500);
+    }
   };
 
-  const startFullProcessing = () => {
+  const startFullProcessing = async () => {
     setIsParsing(true);
-    setTimeout(() => {
+    try {
+      const res = await fetch('/api/parse-statement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: uploadedFiles })
+      });
+      const result = await res.json();
+      if (result.success && result.data) {
+        const parsed = result.data;
+        if (parsed.transactions && parsed.transactions.length > 0) {
+          setTransactions(parsed.transactions);
+          
+          const uniqueAccounts = Array.from(new Set(parsed.transactions.map((tx: any) => tx.accountId))) as string[];
+          const updatedAccounts: SourceAccount[] = uniqueAccounts.map((accId: string, idx: number) => {
+            const accTxs = parsed.transactions.filter((tx: any) => tx.accountId === accId);
+            const totalDebits = accTxs.filter((tx: any) => tx.type === 'debit').reduce((sum: number, tx: any) => sum + (tx.amount || 0), 0);
+            const totalCredits = accTxs.filter((tx: any) => tx.type === 'credit').reduce((sum: number, tx: any) => sum + (tx.amount || 0), 0);
+            
+            return {
+              id: accId || `acc_${idx}`,
+              name: (accId === 'acc_hdfc' ? 'HDFC Bank (Account 1)' : accId === 'acc_icici' ? 'ICICI Bank (Account 2)' : accId === 'acc_gpay' ? 'GPay App Logs' : accId) || `Account ${idx + 1}`,
+              type: accId.includes('card') || accId.includes('icici') ? 'Credit' : accId.includes('gpay') ? 'UPI' : 'Savings',
+              currency: parsed.currency || 'INR',
+              status: 'Synced',
+              colorBg: idx % 4 === 0 ? 'bg-gradient-to-br from-cyan-400 to-sky-505 bg-cyan-400' :
+                       idx % 4 === 1 ? 'bg-gradient-to-br from-rose-400 to-amber-350 bg-rose-400' :
+                       idx % 4 === 2 ? 'bg-gradient-to-br from-violet-400 to-fuchsia-500 bg-violet-400' :
+                                       'bg-gradient-to-br from-amber-400 to-orange-500 bg-amber-400',
+              colorBorder: 'border-slate-200',
+              colorText: 'text-slate-800',
+              balance: totalCredits - totalDebits > 0 ? totalCredits - totalDebits : 10000,
+              accountNumber: `XX-${Math.floor(1000 + Math.random() * 9000)}`
+            };
+          });
+          
+          setAccounts(updatedAccounts);
+        }
+        
+        setActiveStep('doubts');
+      } else {
+        alert(result.error || 'Failed to process statements');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error processing statements');
+    } finally {
       setIsParsing(false);
-      setActiveStep('doubts');
-    }, 1500);
+    }
   };
+
 
   const resolveDoubt = (doubtId: string, choiceId: string) => {
     setDoubts(prev => prev.map(d => d.id === doubtId ? { ...d, answeredId: choiceId } : d));
