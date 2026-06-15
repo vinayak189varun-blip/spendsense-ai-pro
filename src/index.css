@@ -1,0 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=Finlandica:ital,wght@0,400..700;1,400..700&family=Inter:wght@400;500;600;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Finlandica", "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: "Finlandica", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #f7fafc;
+  color: #0b1329;
+}
+
+.chevron-nav-container {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid #eab308;
+  border-radius: 9999px;
+  overflow: hidden;
+  background-color: #ffffff;
+  width: 100%;
+}
+
+.chevron-step {
+  position: relative;
+  flex: 1;
+  text-align: center;
+  padding: 10px 15px 10px 25px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1e3a8a;
+  background-color: #ffffff;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+.chevron-step:first-child {
+  padding-left: 20px;
+}
+
+.chevron-step::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -10px;
+  width: 0;
+  height: 0;
+  border-top: 19px solid transparent;
+  border-bottom: 19px solid transparent;
+  border-left: 10px solid #ffffff;
+  z-index: 2;
+  transition: border-left-color 0.2s ease;
+}
+
+.chevron-step::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -11.5px;
+  width: 0;
+  height: 0;
+  border-top: 19px solid transparent;
+  border-bottom: 19px solid transparent;
+  border-left: 10px solid #eab308;
+  z-index: 1;
+}
+
+.chevron-step.active {
+  background-color: #facc15;
+  color: #000000;
+}
+
+.chevron-step.active::after {
+  border-left-color: #facc15;
+}
+
+.chevron-step:last-child::after, .chevron-step:last-child::before {
+  display: none;
+}
